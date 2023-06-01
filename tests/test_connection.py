@@ -2275,3 +2275,40 @@ class _TestListenerContextManager(ServerTestCase):
             async with asyncssh.connect('127.0.0.1', listen_port,
                                         known_hosts=(['skey.pub'], [], [])):
                 pass
+
+
+class _TestRegexUseCertSigAlgorithmName(unittest.TestCase):
+    """
+    Ensure _RE_SERVER_VERSION_DONT_USE_CERT_SIG_ALGORITHM_NAME regex only matches
+    incompatible server versions (e.g. OpenSSH < 8.8, see https://ikarus.sg/rsa-is-not-dead/
+    for context)
+    """
+    def test_re_server_version_use_cert_sig_algorithm_name_old_versions(self):
+        incompatible_server_version_strings = [
+            b'SSH-2.0-OpenSSH_7.5',
+            b'SSH-2.0-OpenSSH_7.5b',
+            b'SSH-2.0-OpenSSH_8.0',
+            b'SSH-2.0-OpenSSH_8.2',
+            b'SSH-2.0-OpenSSH_8.7',
+            b'SSH-2.0-OpenSSH_8.7 <user-defined string>',
+        ]
+        for version in incompatible_server_version_strings:
+            self.assertRegex(
+                version,
+                asyncssh.connection._RE_SERVER_VERSION_DONT_USE_CERT_SIG_ALGORITHM_NAME,
+            )
+
+    def test_re_server_version_use_cert_sig_algorithm_name_new_versions(self):
+        new_server_version_strings = [
+            b'SSH-2.0-OpenSSH_8.8',
+            b'SSH-2.0-OpenSSH_8.8.1',
+            b'SSH-2.0-OpenSSH_8.8 <user-defined string>',
+            b'SSH-2.0-OpenSSH_8.9',
+            b'SSH-2.0-OpenSSH_9.1',
+            b'SSH-2.0-OpenSSH_10.1',
+        ]
+        for version in new_server_version_strings:
+            self.assertNotRegex(
+                version,
+                asyncssh.connection._RE_SERVER_VERSION_DONT_USE_CERT_SIG_ALGORITHM_NAME,
+            )

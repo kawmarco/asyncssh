@@ -156,10 +156,12 @@ class SSHAgentKeyPair(SSHKeyPair):
 
         self._is_cert = True
 
-    def set_sig_algorithm(self, sig_algorithm: bytes) -> None:
+    def set_sig_algorithm(self, sig_algorithm: bytes, use_cert_sig_algorithm_name: bool = True) -> None:
         """Set the signature algorithm to use when signing data"""
 
-        super().set_sig_algorithm(sig_algorithm)
+        super().set_sig_algorithm(
+            sig_algorithm, use_cert_sig_algorithm_name=use_cert_sig_algorithm_name
+        )
 
         if sig_algorithm in (b'rsa-sha2-256', b'x509v3-rsa2048-sha256'):
             self._flags |= SSH_AGENT_RSA_SHA2_256

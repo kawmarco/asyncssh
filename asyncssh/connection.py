@@ -31,6 +31,7 @@ import socket
 import sys
 import tempfile
 import time
+import re
 
 from collections import OrderedDict
 from functools import partial
@@ -38,7 +39,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, AnyStr, Awaitable, Callable, Dict
 from typing import List, Mapping, Optional, Sequence, Set, Tuple, Type
-from typing import TypeVar, Union, cast
+from typing import TypeVar, Union, cast, Pattern
 from typing_extensions import Protocol
 
 from .agent import SSHAgentClient, SSHAgentListener
@@ -265,6 +266,13 @@ _DEFAULT_MAX_PKTSIZE = 32768        # 32 kiB
 _DEFAULT_LINE_HISTORY = 1000        # 1000 lines
 _DEFAULT_MAX_LINE_LENGTH = 1024     # 1024 characters
 
+# Regex for SSH versions that don't support using the new RSA signature type
+# in the algorithm name field (e.g. OpenSSH < 8.8, see https://ikarus.sg/rsa-is-not-dead/)
+# This is used to instruct SSHKeyPair.set_sig_algorithm whether to use the
+# new signature type or not
+_RE_SERVER_VERSION_DONT_USE_CERT_SIG_ALGORITHM_NAME: Pattern = re.compile(
+    rb'^SSH-2[.]0-OpenSSH_(7[.]|8[.][0-7]([^0-9]|$))'
+)
 
 async def _open_proxy(
         loop: asyncio.AbstractEventLoop, command: Sequence[str],
@@ -3222,11 +3230,17 @@ class SSHClientConnection(SSHConnection):
 
     def _choose_signature_alg(self, keypair: _ClientHostKey) -> bool:
         """Choose signature algorithm to use for key-based authentication"""
-
         if self._server_sig_algs:
+            # Check if the server supports sending the newer signature type scheme
+            use_cert_sig_algorithm_name = bool(
+                not _RE_SERVER_VERSION_DONT_USE_CERT_SIG_ALGORITHM_NAME.match(self._server_version)
+            )
+
             for alg in keypair.sig_algorithms:
                 if alg in self._sig_algs and alg in self._server_sig_algs:
-                    keypair.set_sig_algorithm(alg)
+                    keypair.set_sig_algorithm(
+                        alg, use_cert_sig_algorithm_name=use_cert_sig_algorithm_name
+                    )
                     return True
 
         return keypair.sig_algorithms[-1] in self._sig_algs

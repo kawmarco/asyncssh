@@ -2184,7 +2184,7 @@ class SSHKeyPair:
         self.host_key_algorithms = cert.host_key_algorithms
         self.public_data = cert.public_data
 
-    def set_sig_algorithm(self, sig_algorithm: bytes) -> None:
+    def set_sig_algorithm(self, sig_algorithm: bytes, use_cert_sig_algorithm_name: bool = True) -> None:
         """Set the signature algorithm to use when signing data"""
 
         try:
@@ -2201,7 +2201,7 @@ class SSHKeyPair:
 
             cert = cast('SSHX509CertificateChain', self._cert)
             self.public_data = cert.adjust_public_data(sig_algorithm)
-        else:
+        elif use_cert_sig_algorithm_name:
             if sig_algorithm.endswith(b'@openssh.com'):
                 sig_algorithm = sig_algorithm[:-12]
 
